@@ -12,8 +12,8 @@
 # - Go env 1.8
 
 function common() {
-  W=.
-  export C=${C:-$W/}
+  # PATH to secure cert storage
+  export C=.
 
   # Certificate State Constants
   CERT_VALID=0
@@ -27,6 +27,17 @@ function common() {
 
   export VERBOSITY=${VERBOSITY:-3}
   export FMT=${FMT:-%Y/%m/%d %H:%M:%S}
+
+  [[ -z "$CERT_NAMES" ]] &&\
+  export CERT_NAMES='
+    "names": [
+      {
+        "C":  "CZ",
+        "L":  "Prague",
+        "O":  "Demo",
+        "OU": "Geeks"
+      }
+    ]'
 }
 
 
@@ -42,35 +53,45 @@ function init() {
   ca="ca.pem"
   key="ca-key.pem"
 
-  PROFILES='"profiles": {
-            "server": {
-                "expiry": "43800h",
-                "usages": [
-                    "signing",
-                    "key encipherment",
-                    "server auth"
-                ]
+  PROFILES='
+    "profiles": {
+        "ca": {
+            "ca_constraint": {
+              "is_ca": true
             },
-            "client": {
-                "expiry": "43800h",
-                "usages": [
-                    "signing",
-                    "key encipherment",
-                    "client auth"
-                ]
-            },
-            "peer": {
-                "expiry": "43800h",
-                "usages": [
-                    "signing",
-                    "key encipherment",
-                    "server auth",
-                    "client auth"
-                ]
-            }
-        }'
+            "expiry": "43800h",
+            "usages": [
+                "cert sign"
+            ]
+        },
+        "server": {
+            "expiry": "43800h",
+            "usages": [
+                "signing",
+                "key encipherment",
+                "server auth"
+            ]
+        },
+        "client": {
+            "expiry": "43800h",
+            "usages": [
+                "signing",
+                "key encipherment",
+                "client auth"
+            ]
+        },
+        "peer": {
+            "expiry": "43800h",
+            "usages": [
+                "signing",
+                "key encipherment",
+                "server auth",
+                "client auth"
+            ]
+        }
+     }'
   test -e $C/config.json || \
-    echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]},$PROFILES}}' > $C/config.json
+    echo '{"signing":{"default":{"expiry":"43800h","usages":["signing","key encipherment","server auth","client auth"]},'$PROFILES'}}' > $C/config.json
 
 
   pushd $C
@@ -85,7 +106,7 @@ function init() {
       ;;
     *)
       log info "Generating new certificate authority."
-      echo '{"CN":"Certification Authority","key":{"algo":"rsa","size":2048}}' | cfssl gencert -initca --config config.json - | cfssljson -bare ca -
+      echo '{"CN":"Certification Authority","key":{"algo":"rsa","size":2048},'$CERT_NAMES'}' | cfssl gencert -initca --profile ca --config config.json - | cfssljson -bare ca -
       ;;
   esac
   popd
@@ -258,6 +279,7 @@ function cert_verify_local() {
 
 
 join_by() { local IFS="$1"; shift; echo "$*"; }
+enquote() { echo "$*" | xargs -n1 printf '"%s" '; }
 log_error() { if [ "$VERBOSITY" -ge 0 ]; then echo "$(date +"$FMT") [ERROR] $*"; fi }
 log_warn()  { if [ "$VERBOSITY" -ge 2 ]; then echo "$(date +"$FMT") [WARN ] $*"; fi }
 log_info()  { if [ "$VERBOSITY" -ge 3 ]; then echo "$(date +"$FMT") [INFO ] $*"; fi }
