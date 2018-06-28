@@ -35,6 +35,8 @@ Obviously, this is the most trivial hab setup for the demo purpose.
     ./pki.sh init    &&\
     ./pki.sh serve
 
+Mind `"Now listening on 192.168.xx.xx:8888"` or similar..
+Obviously, this is the most trivial hab setup for the demo purpose.
 
 ## Generate certificates
 
@@ -47,4 +49,7 @@ Obviously, this is the most trivial hab setup for the demo purpose.
     # generate certificates
     ./pki-create.sh
 
+## Check certs
+
+    certtool -i < ./vault-client.pem
 
